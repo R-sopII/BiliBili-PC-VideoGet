@@ -1,0 +1,71 @@
+import requests
+import re
+from moviepy.editor import *
+from time import time
+import os
+
+
+# url_video = re.findall('baseUrl":"(.*?)"', req.text)[0]  # 获取视频地址
+# url_audio = re.findall(r'"id":30280,"baseUrl":"(.*?)"', req.text)[0]  # 获取音频地址
+
+class Bilibili(object):
+    def __init__(self, url):
+        self.url = url  # 要爬取的地址
+        self.headers = {
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.102 Safari/537.36",
+            "referer": self.url
+        }  # 请求头
+        # self.htmlText = None
+        self.video_title = None  # 视频名称
+
+    def login(self):
+        req = requests.get(self.url, headers=self.headers)
+        # self.htmlText = req.text
+        self.video_title = str(re.findall('h1 title="(.*?)"', req.content.decode())[0]).replace("/", "／")
+        return req
+
+    def video_get(self, req):
+        url_video = re.findall('baseUrl":"(.*?)"', req.text)[0]
+        video_b = requests.get(url_video, headers=self.headers).content  # 储存二进制数据
+        with open(rf"{self.video_title}_无声.mp4", "wb") as w:
+            w.write(video_b)
+            print('Video OK')
+
+    def audio_get(self, req):
+        url_audio = re.findall(r'"id":\d{4,7},"baseUrl":"(.*?)"', req.text)[0]
+        audio_b = requests.get(url_audio, headers=self.headers).content
+        with open(rf"{self.video_title}.mp3", "wb") as w:
+            w.write(audio_b)
+            print('Audio OK')
+
+    def mov(self):
+        videos = VideoFileClip(f"{self.video_title}_无声.mp4")
+        audios = AudioFileClip(f"{self.video_title}.mp3")
+        syn = videos.set_audio(audios)
+        syn.write_videofile(rf"{self.video_title}.mp4")
+        print('Merge OK')
+        while True:
+            are_ok = input("video normal?\nok or no\n>>>").upper()
+            if are_ok == "OK":
+                os.remove(rf'{self.video_title}_无声.mp4')
+                os.remove(rf'{self.video_title}.mp3')
+                break
+            elif are_ok == "NO":
+                print("请重新合并视频")
+                print("Please re-merge the video")
+                break
+            else:
+                print("OK or ON")
+        return time()
+
+
+if __name__ == '__main__':
+    time_start = time()
+    url = input("Please enter the video link:\n>>>")
+    b = Bilibili(url)
+    req = b.login()
+    b.video_get(req)
+    b.audio_get(req)
+    time_end = b.mov()
+
+    print("耗时: %s" % int((time_end - time_start)))
